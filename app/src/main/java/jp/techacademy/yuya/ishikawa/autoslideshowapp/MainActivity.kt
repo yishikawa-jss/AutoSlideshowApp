@@ -1,6 +1,7 @@
 package jp.techacademy.yuya.ishikawa.autoslideshowapp
 
 import android.Manifest
+import android.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.content.pm.PackageManager
@@ -8,8 +9,10 @@ import android.os.Build
 import android.util.Log
 import android.provider.MediaStore
 import android.content.ContentUris
+import android.os.Handler
 import androidx.core.net.toUri
 import kotlinx.android.synthetic.main.activity_main.*
+import java.util.*
 
 class MainActivity : AppCompatActivity() {
 
@@ -17,10 +20,15 @@ class MainActivity : AppCompatActivity() {
 
     var picList = mutableListOf<String>()
     var selectedIndex = 0
+    var isStarted = false
+    var mTimer: Timer? = null
+    var mTimerSec = 0.0
+    var mHandler = Handler()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
 
         // Android 6.0以降の場合
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -65,6 +73,51 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        start_button.setOnClickListener {
+            if (isStarted == false) {
+
+                isStarted = true
+
+                mTimer = Timer()
+                mTimerSec = 0.0
+                mTimer!!.schedule(object : TimerTask() {
+                    override fun run() {
+                        mTimerSec += 0.1
+                        mHandler.post {
+                            if (mTimerSec >= 2.0) {
+                                if (picList.size - 1 == selectedIndex) {
+                                    imageView.setImageURI(picList[0].toUri())
+                                    selectedIndex = 0
+                                } else {
+                                    imageView.setImageURI(picList[selectedIndex + 1].toUri())
+                                    selectedIndex += 1
+
+                                }
+
+                                mTimerSec = 0.0
+                            }
+                        }
+                    }
+                }, 0, 100) // 最初に始動させるまで0ミリ秒、ループの間隔を100ミリ秒 に設定
+
+                start_button.text = "停止"
+                prev_button.isEnabled = false
+                next_button.isEnabled = false
+
+
+            } else {
+
+                isStarted = false
+                mTimer!!.cancel()
+                start_button.text = "再生"
+                prev_button.isEnabled = true
+                next_button.isEnabled = true
+
+
+            }
+        }
+
+
 
     }
 
@@ -73,6 +126,13 @@ class MainActivity : AppCompatActivity() {
             PERMISSIONS_REQUEST_CODE ->
                 if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     getContentsInfo()
+                    imageView.setImageURI(this.picList[0].toUri())
+                } else {
+                    AlertDialog.Builder(this)
+                        .setTitle("INFO")
+                        .setMessage("アクセスを許可しないとアプリを使用できません。　終了します。")
+                        .setPositiveButton("OK"){ dialog, which -> finish()}
+                        .show()
                 }
         }
     }
@@ -102,7 +162,7 @@ class MainActivity : AppCompatActivity() {
             } while (cursor.moveToNext())
         }
         cursor.close()
-        println(picList.size)
+        //println(picList.size)
     }
 
 
